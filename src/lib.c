@@ -17,6 +17,7 @@ int initialized = 0;
 int currentTid = 0;
 
 ucontext_t contextEscalonador;
+ucontext_t contextThreadKiller;
 
 FILA2 filaAptos;
 FILA2 filaBloqueados;
@@ -26,9 +27,27 @@ PFILA2 pfilaAptos;
 PFILA2 pfilaBloqueados;
 PFILA2 pfilaExecutando;
 
+int threadKiller()
+{
+
+    FirstFila2(pfilaExecutando);
+
+    TCB_t *currentThread = (TCB_t *)GetAtIteratorFila2(pfilaExecutando);
+    currentThread->state = PROCST_TERMINO;
+
+    DeleteAtIteratorFila2(pfilaExecutando);
+
+    printf("Thread Killer: Matei processo com tid %d\n", currentThread->tid);
+
+    return 1;
+
+}
+
 void escalonador()
 {
     //parar de contar tempo
+
+    printf("Entrando no escalonador...\n");
 
     if(NextFila2(pfilaAptos) != -NXTFILA_VAZIA)
     {
@@ -53,9 +72,19 @@ void escalonador()
             }
         }
 
+        FirstFila2(pfilaAptos);
+        while(NextFila2(pfilaAptos) != -NXTFILA_ENDQUEUE)
+        {
+            nodoAtual = GetAtIteratorFila2(pfilaAptos);
+            if (nodoAtual->tid == maiorPrioTCB->tid){
+                DeleteAtIteratorFila2(pfilaAptos);
+                break;
+            }
+        }
+
         AppendFila2(pfilaExecutando, maiorPrioTCB);
 
-        printf("escalonei thread %d com prioridade %d\n", maiorPrioTCB->tid, maiorPrioTCB->prio);
+        printf("Escalonador: Colocando thread %d com prioridade %d no estado executando\n", maiorPrioTCB->tid, maiorPrioTCB->prio);
 
         if (setcontext(&(maiorPrioTCB->context)) == -1)
         {
@@ -106,13 +135,22 @@ int init()
             FirstFila2(pfilaExecutando);
         }
 
-        printf("criei thread main com tid %d e ela esta no estado %d, com prioridade %d e contexto %d\n", mainThread->tid, mainThread->state, mainThread->prio, mainThread->context.uc_stack.ss_size);
+        getcontext(&contextThreadKiller);
+
+        contextThreadKiller.uc_stack.ss_sp = malloc(sizeof(SIGSTKSZ));
+        contextThreadKiller.uc_stack.ss_size = SIGSTKSZ;
+        contextThreadKiller.uc_stack.ss_flags = 0;
+        contextThreadKiller.uc_link = &contextEscalonador;
+
+        makecontext(&contextThreadKiller, (void (*)(void))threadKiller, 0);
+
+        printf("Estruturas inicializadas e thread main criada com tid %d\n", mainThread->tid);
 
         return 0;
     }
     else
     {
-        printf("ja inicializou\n");
+        printf("Funcao init: Estruturas ja foram inicializadas!\n");
         return -1;
     }
 }
@@ -160,7 +198,7 @@ int cyield(void) {
         exit(-1);
     }
 
-    printf("depois de pehgarr thera %d\n", currentThread->tid);
+    printf("Tirando thread %d do estado de executando...\n", currentThread->tid);
 
     currentThread->state = PROCST_APTO;
     // salva o contexto na thread

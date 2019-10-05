@@ -1,6 +1,8 @@
-
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <ucontext.h>
+
 #include "../include/support.h"
 #include "../include/cthread.h"
 #include "../include/cdata.h"
@@ -10,19 +12,57 @@
 #define	PROCST_BLOQ	2		/* Processo em estado bloqueado */
 #define	PROCST_TERMINO	3	/* Processo em estado de terminado */
 
-bool initialized = false;
+int initialized = 0;
 
 int currentTid = 0;
 
 ucontext_t contextEscalonador;
 
 FILA2 filaAptos;
-FILA2 filaBloqueado;
+FILA2 filaBloqueados;
 FILA2 filaExecutando;
 
 PFILA2 pfilaAptos;
 PFILA2 pfilaBloqueados;
 PFILA2 pfilaExecutando;
+
+void escalonador()
+{
+    //parar de contar tempo
+
+    if(NextFila2(pfilaAptos) != -NXTFILA_VAZIA)
+    {
+        FirstFila2(pfilaAptos);
+
+        TCB_t *maiorPrioTCB = (TCB_t *)GetAtIteratorFila2(pfilaAptos);
+        TCB_t *nodoAtual = NULL;
+
+        float menorTempo = maiorPrioTCB->prio;
+        float tempoNodoAtual = menorTempo;
+
+        while(NextFila2(pfilaAptos) != -NXTFILA_ENDQUEUE)
+        {
+            nodoAtual = GetAtIteratorFila2(pfilaAptos);
+            tempoNodoAtual = nodoAtual->prio;
+
+            if (tempoNodoAtual < menorTempo)
+            {
+                //printf("Achei thread com prioriddade %d e a menor era %d\n", )
+                menorTempo = tempoNodoAtual;
+                maiorPrioTCB = nodoAtual;
+            }
+        }
+
+        AppendFila2(pfilaExecutando, maiorPrioTCB);
+
+        printf("escalonei thread %d com prioridade %d\n", maiorPrioTCB->tid, maiorPrioTCB->prio);
+
+        if (setcontext(&(maiorPrioTCB->context)) == -1)
+        {
+            exit(-1);
+        }
+    }
+}
 
 int init()
 {
@@ -38,7 +78,7 @@ int init()
         makecontext(&contextEscalonador, (void (*)(void))escalonador, 0);
 
         pfilaAptos = &filaAptos;
-        pfilaBloqueado = &filaBloqueado;
+        pfilaBloqueados = &filaBloqueados;
         pfilaExecutando = &filaExecutando;
 
         if ( CreateFila2(pfilaAptos) != 0)
@@ -50,46 +90,48 @@ int init()
         if ( CreateFila2(pfilaExecutando) != 0)
             exit(-1);
 
-        initialized = true;
+        initialized = 1;
 
         TCB_t *mainThread;
         mainThread = malloc(sizeof(TCB_t));
         mainThread->tid = 0;
         mainThread->state = PROCST_EXEC;
-        mainThread->prio = 0;
+        mainThread->prio = 10;
         getcontext(&(mainThread->context));
+
+        if (AppendFila2(pfilaExecutando, mainThread) != 0){
+            exit(-1);
+        }
+        else{
+            FirstFila2(pfilaExecutando);
+        }
+
+        printf("criei thread main com tid %d e ela esta no estado %d, com prioridade %d e contexto %d\n", mainThread->tid, mainThread->state, mainThread->prio, mainThread->context.uc_stack.ss_size);
 
         return 0;
     }
     else
     {
+        printf("ja inicializou\n");
         return -1;
     }
 }
 
-void escalonador()
-{
-
-
-}
-
 int ccreate (void* (*start)(void*), void *arg, int prio) {
-    init()
 
-    TCB_t *newThread = malloc(sizeof(TCB_t))
+    init();
 
-    ucontext_t newContext;
-    ucontext_t* newContextP;
+    TCB_t *newThread = malloc(sizeof(TCB_t));
 
     newThread->tid = ++currentTid;
     newThread->state = PROCST_APTO;
-    newThread->prio = 0;
+    newThread->prio = prio;
     getcontext(&(newThread->context));
 
     newThread->context.uc_stack.ss_sp = malloc(sizeof(SIGSTKSZ));
     newThread->context.uc_stack.ss_size = SIGSTKSZ;
     newThread->context.uc_stack.ss_flags = 0;
-    newThread->context.uc_link = &escalonador
+    newThread->context.uc_link = &contextEscalonador;
 
     makecontext(&(newThread->context), (void (*)(void))start, 1, arg);
 
@@ -105,9 +147,20 @@ int ccreate (void* (*start)(void*), void *arg, int prio) {
 }
 
 int cyield(void) {
+
     init();
 
-    currentThread = (TCB_t *)GetAtIteratorFila2(pfilaExecutando);
+    FirstFila2(pfilaExecutando);
+
+    TCB_t *currentThread = (TCB_t *)GetAtIteratorFila2(pfilaExecutando);
+
+    DeleteAtIteratorFila2(pfilaExecutando);
+
+    if (AppendFila2(pfilaAptos, currentThread) != 0){
+        exit(-1);
+    }
+
+    printf("depois de pehgarr thera %d\n", currentThread->tid);
 
     currentThread->state = PROCST_APTO;
     // salva o contexto na thread
@@ -116,8 +169,8 @@ int cyield(void) {
         return -1;
     }
 
-    if (runningThread->state == PROCST_APTO){
-        scheduler();
+    if (currentThread->state == PROCST_APTO){
+        escalonador();
     }
     else {
         return 0;
@@ -159,14 +212,5 @@ int cidentify (char *name, int size) {
 
 	strncpy (name, "Demetrio Boeira - 297693\nGustavo Lorentz - 287681\nPedro Weber - 287678\n", size);
 	return 0;
-}
-
-int main() {
-    char name[71] = "";
-    char *namep = &name;
-    int size = 71;
-    cidentify(namep, size);
-    printf("%s", name);
-    return 0;
 }
 

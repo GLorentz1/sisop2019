@@ -52,6 +52,13 @@ int init()
 
         initialized = true;
 
+        TCB_t *mainThread;
+        mainThread = malloc(sizeof(TCB_t));
+        mainThread->tid = 0;
+        mainThread->state = PROCST_EXEC;
+        mainThread->prio = 0;
+        getcontext(&(mainThread->context));
+
         return 0;
     }
     else
@@ -86,18 +93,36 @@ int ccreate (void* (*start)(void*), void *arg, int prio) {
 
     makecontext(&(newThread->context), (void (*)(void))start, 1, arg);
 
-    AppendFila2(filaAptos, newThread);
 
-	return -1;
+    if (AppendFila2(pfilaAptos, newThread) != 0){
+        exit(-1);
+    }
+    else{
+        FirstFila2(pfilaAptos);
+    }
+
+	return newThread->tid;
 }
 
 int cyield(void) {
-
     init();
 
+    currentThread = (TCB_t *)GetAtIteratorFila2(pfilaExecutando);
 
+    currentThread->state = PROCST_APTO;
+    // salva o contexto na thread
+    if (getcontext(&(currentThread->context)) == -1)
+    {
+        return -1;
+    }
 
-	return -1;
+    if (runningThread->state == PROCST_APTO){
+        scheduler();
+    }
+    else {
+        return 0;
+    }
+    return 0;
 }
 
 int cjoin(int tid) {

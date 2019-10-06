@@ -29,15 +29,12 @@ PFILA2 pfilaExecutando;
 
 int threadKiller()
 {
-
     printf("Inicio Killer\n");
 
     FirstFila2(pfilaExecutando);
 
     TCB_t *currentThread = (TCB_t *)GetAtIteratorFila2(pfilaExecutando);
     currentThread->state = PROCST_TERMINO;
-
-    DeleteAtIteratorFila2(pfilaExecutando);
 
     printf("Thread Killer: Matei processo com tid %d\n", currentThread->tid);
 
@@ -49,9 +46,35 @@ int threadKiller()
 
 void escalonador()
 {
-    //parar de contar tempo
+//    unsigned int novaPrioridade = stopTimer();//parar de contar tempo
 
     printf("Entrando no escalonador...\n");
+    TCB_t *currentThread = (TCB_t *)GetAtIteratorFila2(pfilaExecutando);
+//    printf("Nova prioridade da thread %d eh %u\n", currentThread->tid, novaPrioridade);
+
+//    currentThread->prio = novaPrioridade;
+
+    //todos os casos (State = bloq / apto / terminado tiram processo de executando
+    FirstFila2(pfilaExecutando);
+    DeleteAtIteratorFila2(pfilaExecutando);
+//
+//    currentThread->state = PROCST_APTO;
+
+    //se ele eh apto bota na fila de aptos, se eh bloq bota em bloqueados, se for terminado nao faz nada e nunca vai ser exec
+    if (currentThread->state == PROCST_APTO)
+    {
+        if (AppendFila2(pfilaAptos, currentThread) != 0)
+        {
+            exit(-1);
+        }
+    }
+    else if (currentThread->state == PROCST_BLOQ)
+    {
+        if (AppendFila2(pfilaBloqueados, currentThread) != 0)
+        {
+            exit(-1);
+        }
+    }
 
     if(NextFila2(pfilaAptos) != -NXTFILA_VAZIA)
     {
@@ -70,26 +93,38 @@ void escalonador()
 
             if (tempoNodoAtual < menorTempo)
             {
-                //printf("Achei thread com prioriddade %d e a menor era %d\n", )
+                //printf("Achei thread com prioridade %f e a menor era %f\n", tempoNodoAtual, menorTempo);
                 menorTempo = tempoNodoAtual;
                 maiorPrioTCB = nodoAtual;
             }
         }
 
         FirstFila2(pfilaAptos);
-        while(NextFila2(pfilaAptos) != -NXTFILA_ENDQUEUE)
+        nodoAtual = GetAtIteratorFila2(pfilaAptos);
+        if (nodoAtual->tid == maiorPrioTCB->tid)
         {
-            nodoAtual = GetAtIteratorFila2(pfilaAptos);
-            if (nodoAtual->tid == maiorPrioTCB->tid){
-                DeleteAtIteratorFila2(pfilaAptos);
-                break;
+            DeleteAtIteratorFila2(pfilaAptos);
+        }
+        else
+        {
+            while(NextFila2(pfilaAptos) != -NXTFILA_ENDQUEUE)
+            {
+                nodoAtual = GetAtIteratorFila2(pfilaAptos);
+                if (nodoAtual->tid == maiorPrioTCB->tid)
+                {
+                    DeleteAtIteratorFila2(pfilaAptos);
+                    break;
+                }
             }
         }
 
+
+        maiorPrioTCB->state = PROCST_EXEC;
         AppendFila2(pfilaExecutando, maiorPrioTCB);
 
         printf("Escalonador: Colocando thread %d com prioridade %d no estado executando\n", maiorPrioTCB->tid, maiorPrioTCB->prio);
 
+//        startTimer();
         if (setcontext(&(maiorPrioTCB->context)) == -1)
         {
             exit(-1);
@@ -99,6 +134,7 @@ void escalonador()
 
 int init()
 {
+    startTimer();
     if (!initialized)
     {
         getcontext(&contextEscalonador);
@@ -132,10 +168,12 @@ int init()
         mainThread->prio = 10;
         getcontext(&(mainThread->context));
 
-        if (AppendFila2(pfilaExecutando, mainThread) != 0){
+        if (AppendFila2(pfilaExecutando, mainThread) != 0)
+        {
             exit(-1);
         }
-        else{
+        else
+        {
             FirstFila2(pfilaExecutando);
         }
 
@@ -144,7 +182,7 @@ int init()
         contextThreadKiller.uc_stack.ss_sp = malloc(sizeof(SIGSTKSZ));
         contextThreadKiller.uc_stack.ss_size = SIGSTKSZ;
         contextThreadKiller.uc_stack.ss_flags = 0;
-        contextThreadKiller.uc_link = &contextEscalonador;
+        contextThreadKiller.uc_link = NULL;
 
         makecontext(&contextThreadKiller, (void (*)(void))threadKiller, 0);
 
@@ -159,8 +197,8 @@ int init()
     }
 }
 
-int ccreate (void* (*start)(void*), void *arg, int prio) {
-
+int ccreate (void* (*start)(void*), void *arg, int prio)
+{
     init();
 
     TCB_t *newThread = malloc(sizeof(TCB_t));
@@ -177,29 +215,28 @@ int ccreate (void* (*start)(void*), void *arg, int prio) {
 
     makecontext(&(newThread->context), (void (*)(void))start, 1, arg);
 
-    if (AppendFila2(pfilaAptos, newThread) != 0){
+    if (AppendFila2(pfilaAptos, newThread) != 0)
+    {
         exit(-1);
     }
-    else{
+    else
+    {
         FirstFila2(pfilaAptos);
     }
 
-	return newThread->tid;
+    return newThread->tid;
 }
 
-int cyield(void) {
+int cyield(void)
+{
 
     init();
 
-    FirstFila2(pfilaExecutando);
+    //FirstFila2(pfilaExecutando);
 
     TCB_t *currentThread = (TCB_t *)GetAtIteratorFila2(pfilaExecutando);
 
-    DeleteAtIteratorFila2(pfilaExecutando);
-
-    if (AppendFila2(pfilaAptos, currentThread) != 0){
-        exit(-1);
-    }
+    //DeleteAtIteratorFila2(pfilaExecutando);
 
     printf("Tirando thread %d do estado de executando...\n", currentThread->tid);
 
@@ -210,48 +247,55 @@ int cyield(void) {
         return -1;
     }
 
-    if (currentThread->state == PROCST_APTO){
+    if (currentThread->state == PROCST_APTO)
+    {
         escalonador();
     }
-    else {
+    else
+    {
         return 0;
     }
     return 0;
 }
 
-int cjoin(int tid) {
+int cjoin(int tid)
+{
 
     init();
 
-	return -1;
+    return -1;
 }
 
-int csem_init(csem_t *sem, int count) {
+int csem_init(csem_t *sem, int count)
+{
 
     init();
 
-	return -1;
+    return -1;
 }
 
-int cwait(csem_t *sem) {
+int cwait(csem_t *sem)
+{
 
     init();
 
-	return -1;
+    return -1;
 }
 
-int csignal(csem_t *sem) {
+int csignal(csem_t *sem)
+{
 
     init();
 
-	return -1;
+    return -1;
 }
 
-int cidentify (char *name, int size) {
+int cidentify (char *name, int size)
+{
 
     init();
 
-	strncpy (name, "Demetrio Boeira - 297693\nGustavo Lorentz - 287681\nPedro Weber - 287678\n", size);
-	return 0;
+    strncpy (name, "Demetrio Boeira - 297693\nGustavo Lorentz - 287681\nPedro Weber - 287678\n", size);
+    return 0;
 }
 

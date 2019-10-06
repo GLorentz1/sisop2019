@@ -30,6 +30,8 @@ PFILA2 pfilaExecutando;
 int threadKiller()
 {
 
+    printf("Inicio Killer\n");
+
     FirstFila2(pfilaExecutando);
 
     TCB_t *currentThread = (TCB_t *)GetAtIteratorFila2(pfilaExecutando);
@@ -38,6 +40,8 @@ int threadKiller()
     DeleteAtIteratorFila2(pfilaExecutando);
 
     printf("Thread Killer: Matei processo com tid %d\n", currentThread->tid);
+
+    escalonador();
 
     return 1;
 
@@ -169,10 +173,9 @@ int ccreate (void* (*start)(void*), void *arg, int prio) {
     newThread->context.uc_stack.ss_sp = malloc(sizeof(SIGSTKSZ));
     newThread->context.uc_stack.ss_size = SIGSTKSZ;
     newThread->context.uc_stack.ss_flags = 0;
-    newThread->context.uc_link = &contextEscalonador;
+    newThread->context.uc_link = &contextThreadKiller;
 
     makecontext(&(newThread->context), (void (*)(void))start, 1, arg);
-
 
     if (AppendFila2(pfilaAptos, newThread) != 0){
         exit(-1);

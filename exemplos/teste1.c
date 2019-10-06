@@ -28,7 +28,7 @@ int main() {
     //char *namep = &name;
     //int size = 72;
     //cidentify(namep, size);
-    printf("o");
+    printf("o\n");
 
     return 0;
 }

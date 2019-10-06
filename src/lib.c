@@ -45,13 +45,13 @@ int threadKiller()
 
 void escalonador()
 {
-//    unsigned int novaPrioridade = stopTimer();//parar de contar tempo
+    unsigned int novaPrioridade = stopTimer();//parar de contar tempo
 
     printf("Entrando no escalonador...\n");
     TCB_t *currentThread = (TCB_t *)GetAtIteratorFila2(pfilaExecutando);
-//    printf("Nova prioridade da thread %d eh %u\n", currentThread->tid, novaPrioridade);
+    printf("Nova prioridade da thread %d eh %u\n", currentThread->tid, novaPrioridade);
 
-//    currentThread->prio = novaPrioridade;
+    currentThread->prio = novaPrioridade;
 
     //todos os casos (State = bloq / apto / terminado tiram processo de executando
     FirstFila2(pfilaExecutando);
@@ -123,7 +123,7 @@ void escalonador()
 
         printf("Escalonador: Colocando thread %d com prioridade %d no estado executando\n\n", maiorPrioTCB->tid, maiorPrioTCB->prio);
 
-//        startTimer();
+        startTimer();
         if (setcontext(&(maiorPrioTCB->context)) == -1)
         {
             exit(-1);
@@ -143,7 +143,7 @@ int init()
         contextEscalonador.uc_stack.ss_size = SIGSTKSZ;
         contextEscalonador.uc_stack.ss_flags = 0;
 
-        makecontext(&contextEscalonador, (void (*)(void))escalonador, 0);
+        makecontext(&contextEscalonador, (void *)escalonador, 0);
 
         pfilaAptos = &filaAptos;
         pfilaBloqueados = &filaBloqueados;
@@ -183,7 +183,7 @@ int init()
         contextThreadKiller.uc_stack.ss_flags = 0;
         contextThreadKiller.uc_link = &contextEscalonador;
 
-        makecontext(&contextThreadKiller, (void (*)(void))threadKiller, 0);
+        makecontext(&contextThreadKiller, (void *)threadKiller, 0);
 
         printf("Estruturas inicializadas e thread main criada com tid %d\n", mainThread->tid);
 
@@ -210,10 +210,10 @@ int ccreate (void* (*start)(void*), void *arg, int prio)
 
     newThread->context.uc_stack.ss_sp = malloc(sizeof(SIGSTKSZ));
     newThread->context.uc_stack.ss_size = SIGSTKSZ;
-    newThread->context.uc_stack.ss_flags = 0;
+//    newThread->context.uc_stack.ss_flags = 0;
     newThread->context.uc_link = &contextThreadKiller;
 
-    makecontext(&(newThread->context), (void (*)(void))start, 1, arg);
+    makecontext(&(newThread->context), (void *) start, 1, arg);
 
     if (AppendFila2(pfilaAptos, newThread) != 0)
     {
@@ -241,6 +241,7 @@ int cyield(void)
     printf("Cyield: Tirando thread %d do estado de executando...\n", currentThread->tid);
 
     currentThread->state = PROCST_APTO;
+
 
     int getContextReturn = getcontext(&(currentThread->context));
     // salva o contexto na thread

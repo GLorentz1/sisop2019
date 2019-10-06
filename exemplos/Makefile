@@ -11,7 +11,7 @@ exemplo: exemplo.c libcthread
 	$(CC) -o exemplo exemplo.c -L$(LIB_DIR) -lcthread -Wall
 
 teste_vetor: teste_vetor.c libcthread
-	$(CC) -o teste_vetor teste_vetor.c -L$(LIB_DIR) -lcthread -Wall
+	$(CC) -o teste_vetor teste_vetor.c -L./ -lcthread -Wall
 
 mandel: mandel.c libcthread
 	$(CC) -o mandel mandel.c -L$(LIB_DIR) -lcthread -lm -Wall
@@ -29,15 +29,12 @@ series: series.c libcthread
 	$(CC) -o series series.c -L$(LIB_DIR) -lcthread -lm -Wall
 
 teste1: teste1.c $(LIB_DIR)/lib.c libcthread
-	ls
 	$(CC) -o teste1 teste1.c -L./ -lcthread -Wall
 
 libcthread: lib
-	ls
 	ar crs libcthread.a lib.o ../bin/support.o
 
 lib:
-	ls
 	$(CC) -c $(LIB_DIR)/lib.c -Wall
 	
 clean:

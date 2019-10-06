@@ -30,14 +30,12 @@ series: series.c libcthread
 
 teste1: teste1.c $(LIB_DIR)/lib.c libcthread
 	ls
-	$(CC) -o teste1 teste1.c -lcthread -Wall
+	$(CC) -o teste1 teste1.c -L./ -lcthread -Wall
 
 libcthread: lib
-	ls
 	ar crs libcthread.a lib.o ../bin/support.o
 
 lib:
-	ls
 	$(CC) -c $(LIB_DIR)/lib.c -Wall
 	
 clean:

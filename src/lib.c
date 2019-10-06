@@ -29,8 +29,6 @@ PFILA2 pfilaExecutando;
 
 int threadKiller()
 {
-    printf("Inicio Killer\n");
-
     FirstFila2(pfilaExecutando);
 
     TCB_t *currentThread = (TCB_t *)GetAtIteratorFila2(pfilaExecutando);
@@ -38,6 +36,7 @@ int threadKiller()
 
     printf("Thread Killer: Matei processo com tid %d\n", currentThread->tid);
 
+    printf("Thread Killer: Chamando escalonador\n");
     escalonador();
 
     return 1;
@@ -122,7 +121,7 @@ void escalonador()
         maiorPrioTCB->state = PROCST_EXEC;
         AppendFila2(pfilaExecutando, maiorPrioTCB);
 
-        printf("Escalonador: Colocando thread %d com prioridade %d no estado executando\n", maiorPrioTCB->tid, maiorPrioTCB->prio);
+        printf("Escalonador: Colocando thread %d com prioridade %d no estado executando\n\n", maiorPrioTCB->tid, maiorPrioTCB->prio);
 
 //        startTimer();
         if (setcontext(&(maiorPrioTCB->context)) == -1)
@@ -182,7 +181,7 @@ int init()
         contextThreadKiller.uc_stack.ss_sp = malloc(sizeof(SIGSTKSZ));
         contextThreadKiller.uc_stack.ss_size = SIGSTKSZ;
         contextThreadKiller.uc_stack.ss_flags = 0;
-        contextThreadKiller.uc_link = NULL;
+        contextThreadKiller.uc_link = &contextEscalonador;
 
         makecontext(&contextThreadKiller, (void (*)(void))threadKiller, 0);
 
@@ -199,6 +198,7 @@ int init()
 
 int ccreate (void* (*start)(void*), void *arg, int prio)
 {
+    printf("Ccreate: ");
     init();
 
     TCB_t *newThread = malloc(sizeof(TCB_t));
@@ -229,30 +229,36 @@ int ccreate (void* (*start)(void*), void *arg, int prio)
 
 int cyield(void)
 {
-
+    printf("Cyield: ");
     init();
 
-    //FirstFila2(pfilaExecutando);
+    FirstFila2(pfilaExecutando);
 
     TCB_t *currentThread = (TCB_t *)GetAtIteratorFila2(pfilaExecutando);
 
     //DeleteAtIteratorFila2(pfilaExecutando);
 
-    printf("Tirando thread %d do estado de executando...\n", currentThread->tid);
+    printf("Cyield: Tirando thread %d do estado de executando...\n", currentThread->tid);
 
     currentThread->state = PROCST_APTO;
+
+    int getContextReturn = getcontext(&(currentThread->context));
     // salva o contexto na thread
-    if (getcontext(&(currentThread->context)) == -1)
+
+    //printf("Cyield: Tid da thread: %d\n", currentThread->tid);
+    if (getContextReturn == -1)
     {
         return -1;
     }
 
     if (currentThread->state == PROCST_APTO)
     {
+        printf("Cyield: Chamando escalonador\n\n\n");
         escalonador();
     }
     else
     {
+        printf("Retomando execucao a partir da cyield\n\n\n");
         return 0;
     }
     return 0;

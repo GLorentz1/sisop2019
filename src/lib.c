@@ -48,6 +48,7 @@ void escalonador()
     unsigned int novaPrioridade = stopTimer();//parar de contar tempo
 
     printf("Entrando no escalonador...\n");
+    FirstFila2(pfilaAptos);
     TCB_t *currentThread = (TCB_t *)GetAtIteratorFila2(pfilaExecutando);
     printf("Nova prioridade da thread %d eh %u\n", currentThread->tid, novaPrioridade);
 
@@ -133,9 +134,9 @@ void escalonador()
 
 int init()
 {
-    startTimer();
     if (!initialized)
     {
+        startTimer();
         getcontext(&contextEscalonador);
 
         contextEscalonador.uc_link = NULL;
@@ -165,7 +166,10 @@ int init()
         mainThread->tid = 0;
         mainThread->state = PROCST_EXEC;
         mainThread->prio = 10;
+        mainThread->join = -1;
         getcontext(&(mainThread->context));
+
+        mainThread->context.uc_link = 0;
 
         if (AppendFila2(pfilaExecutando, mainThread) != 0)
         {
@@ -206,11 +210,12 @@ int ccreate (void* (*start)(void*), void *arg, int prio)
     newThread->tid = ++currentTid;
     newThread->state = PROCST_APTO;
     newThread->prio = prio;
+    newThread->join = -1;
     getcontext(&(newThread->context));
 
     newThread->context.uc_stack.ss_sp = malloc(sizeof(SIGSTKSZ));
     newThread->context.uc_stack.ss_size = SIGSTKSZ;
-//    newThread->context.uc_stack.ss_flags = 0;
+    newThread->context.uc_stack.ss_flags = 0;
     newThread->context.uc_link = &contextThreadKiller;
 
     makecontext(&(newThread->context), (void *) start, 1, arg);
@@ -242,11 +247,10 @@ int cyield(void)
 
     currentThread->state = PROCST_APTO;
 
-
     int getContextReturn = getcontext(&(currentThread->context));
     // salva o contexto na thread
 
-    //printf("Cyield: Tid da thread: %d\n", currentThread->tid);
+    printf("Cyield: Tid da thread que fez a cedencia: %d\n", currentThread->tid);
     if (getContextReturn == -1)
     {
         return -1;
@@ -267,10 +271,64 @@ int cyield(void)
 
 int cjoin(int tid)
 {
-
+    printf("Cjoin: ");
     init();
 
-    return -1;
+    TCB_t *currentThread;
+    FirstFila2(pfilaAptos);
+    int achou = 0;
+
+    printf("antes\n");
+    printf("Cjoin: Procurando thread com tid %d na fila de aptos\n", tid);
+    printf("depois\n");
+    do
+    {
+        currentThread = (TCB_t *)GetAtIteratorFila2(pfilaAptos);
+        if (currentThread != NULL)
+        {
+            if (currentThread->tid == tid)
+            {
+                printf("Cjoin: Encontrou thread com tid %d na fila de aptos/n", currentThread->tid);
+                achou = 1;
+            }
+        }
+    } while((NextFila2(pfilaAptos != -NXTFILA_ENDQUEUE)) && !achou);
+
+    if (achou)
+    {
+        if (currentThread->join != -1)
+        {
+            printf("Cjoin: Nao pode esperar essa thread pois thread %d ja esta esperando\n", currentThread->join);
+            return -2;
+        }
+        else
+        {
+            TCB_t *execThread = (TCB_t *)GetAtIteratorFila2(pfilaExecutando);
+            currentThread->join = execThread->tid;
+
+            execThread->state = PROCST_BLOQ;
+
+            if (getcontext(&(execThread->context)) == -1)
+            {
+                exit(-1);
+            }
+
+            if (execThread->state == PROCST_BLOQ)
+            {
+                printf("Cjoin: Thread %d bloqueada, chamando escalonador...\n\n", execThread->tid);
+                escalonador();
+            }
+            else
+            {
+                printf("Cjoin: Retomando execucao da thread %d a partir da Cjoin\n\n", execThread->tid);
+                return 0;
+            }
+        }
+    }
+    else
+    {
+        return -1;
+    }
 }
 
 int csem_init(csem_t *sem, int count)

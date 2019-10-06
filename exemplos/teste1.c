@@ -7,16 +7,20 @@ void* printa4() {
 }
 
 void* printa3() {
+    int tid = ccreate(printa4, NULL, 0);
     printf("funcao 3\n");
-    printf("Thread criada e tid %d retornado\n", ccreate(printa4, NULL, 0));
+    printf("Thread criada e tid %d retornado\n", tid);
     return;
-
 }
 
 void* printa2() {
+    //int tid = ccreate(printa3, NULL, 0);
     printf("funcao 2\n");
-    printf("Thread criada e tid %d retornado\n", ccreate(printa3, NULL, 0));
+    //printf("Thread criada e tid %d retornado\n", tid);
+    //printf("Vou esperar tid %d\n", tid);
     printf("Retorno da Cyield na funcao 2: %d\n", cyield());
+    //printf("Vou esperar tid %d\n", tid);
+    //cjoin(tid);
 
     printf("Acabei funcao 2\n");
     return;
@@ -24,11 +28,13 @@ void* printa2() {
 }
 
 void* printa() {
+    int tid = ccreate(printa2, NULL, 0);
     printf("funcao 1\n");
-    printf("Thread criada e tid %d retornado\n", ccreate(printa2, NULL, 0));
+    printf("Thread criada e tid %d retornado\n", tid);
     printf("Retorno da Cyield na funcao 1: %d\n", cyield());
-    printf("saladinha/n");
-    printf("salada/n");
+    cjoin(tid);
+    //printf("saladinha/n");
+    //printf("salada/n");
     printf("saladao/n");
     return;
 
@@ -43,13 +49,15 @@ void* dummy() {
 
 int main() {
     int i;
-    printf("Thread criada e tid %d retornado\n", ccreate(printa, (void *)&i, 0));
-    printf("Thread criada e tid %d retornado\n", ccreate(printa2, (void *)&i, 0));
-    printf("Thread criada e tid %d retornado\n", ccreate(printa2, (void *)&i, 0));
-    printf("Thread criada e tid %d retornado\n", ccreate(dummy, (void *)&i, 0));
+    int tid1 = ccreate(printa, (void *)&i, 0);
+    printf("Thread criada e tid %d retornado\n", tid1);
     cyield();
-    printf("Segundo yield da main\n");
+    cjoin(tid1);
+    int tid2 = ccreate(dummy, (void *)&i, 0);
+    printf("Thread criada e tid %d retornado\n", tid2);
     cyield();
+    cjoin(tid2);
+
     //char name[72] = "";
     //char *namep = &name;
     //int size = 72;

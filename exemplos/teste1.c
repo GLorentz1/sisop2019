@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <ucontext.h>
 #include "../include/cthread.h"
 
 void* printa4() {
@@ -14,13 +15,12 @@ void* printa3() {
 }
 
 void* printa2() {
-    //int tid = ccreate(printa3, NULL, 0);
+    int tid = ccreate(printa3, NULL, 0);
     printf("funcao 2\n");
-    //printf("Thread criada e tid %d retornado\n", tid);
-    //printf("Vou esperar tid %d\n", tid);
+    printf("Thread criada e tid %d retornado\n", tid);
     printf("Retorno da Cyield na funcao 2: %d\n", cyield());
-    //printf("Vou esperar tid %d\n", tid);
-    //cjoin(tid);
+    printf("Vou esperar tid %d\n", tid);
+    cjoin(tid);
 
     printf("Acabei funcao 2\n");
     return;
@@ -29,13 +29,12 @@ void* printa2() {
 
 void* printa() {
     int tid = ccreate(printa2, NULL, 0);
-    printf("funcao 1\n");
+    printf("funcao %d\n", SIGSTKSZ);
     printf("Thread criada e tid %d retornado\n", tid);
     printf("Retorno da Cyield na funcao 1: %d\n", cyield());
-    cjoin(tid);
-    //printf("saladinha/n");
-    //printf("salada/n");
-    printf("saladao/n");
+    printf("Vou esperar tid %d\n", tid);
+    printf("Retorno da Cjoin da funcao 1: %d\n", cjoin(tid));
+    printf("saladao\n");
     return;
 
 }
@@ -58,10 +57,11 @@ int main() {
     cyield();
     cjoin(tid2);
 
-    //char name[72] = "";
-    //char *namep = &name;
-    //int size = 72;
-    //cidentify(namep, size);
+    char name[72] = "";
+    char *namep = &name;
+    int size = 72;
+    cidentify(namep, size);
+
     printf("Fim da main\n");
 
     return 0;

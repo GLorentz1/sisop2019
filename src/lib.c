@@ -27,6 +27,45 @@ PFILA2 pfilaAptos;
 PFILA2 pfilaBloqueados;
 PFILA2 pfilaExecutando;
 
+FreeJoins(int tid)
+{
+    FirstFila2(pfilaBloqueados);
+    TCB_t *currentBlockedThread = (TCB_t *)GetAtIteratorFila2(pfilaBloqueados);
+
+    printf("\nFreeJoins: Liberando threads que estavam esperando\n");
+
+    int achou = 0;
+    if (currentBlockedThread == NULL)
+    {
+        printf("FreeJoins: Fila de bloqueados vazia\n");
+        return -1;
+    }
+
+    do
+    {
+        currentBlockedThread = (TCB_t *)GetAtIteratorFila2(pfilaBloqueados);
+
+        if (currentBlockedThread->tid == tid)
+        {
+            currentBlockedThread->state = PROCST_APTO;
+
+            if (AppendFila2(pfilaAptos, currentBlockedThread) != 0)
+            {
+                exit(-1);
+            }
+
+            DeleteAtIteratorFila2(pfilaBloqueados);
+            achou = 1;
+
+            printf("FreeJoins: Libertei thread %d que estava esperando\n\n", currentBlockedThread->tid);
+        }
+
+    }
+    while((NextFila2(pfilaBloqueados) != -NXTFILA_ENDQUEUE) && !achou);
+
+    return 0;
+}
+
 int threadKiller()
 {
     FirstFila2(pfilaExecutando);
@@ -37,6 +76,12 @@ int threadKiller()
     printf("Thread Killer: Matei processo com tid %d\n", currentThread->tid);
 
     printf("Thread Killer: Chamando escalonador\n");
+
+    if (currentThread->join != -1)
+    {
+        FreeJoins(currentThread->join);
+    }
+
     escalonador();
 
     return 1;
@@ -140,11 +185,11 @@ int init()
         getcontext(&contextEscalonador);
 
         contextEscalonador.uc_link = NULL;
-        contextEscalonador.uc_stack.ss_sp = malloc(sizeof(SIGSTKSZ));
-        contextEscalonador.uc_stack.ss_size = SIGSTKSZ;
+        contextEscalonador.uc_stack.ss_sp = malloc(32000);
+        contextEscalonador.uc_stack.ss_size = 32000;
         contextEscalonador.uc_stack.ss_flags = 0;
 
-        makecontext(&contextEscalonador, (void *)escalonador, 0);
+        makecontext(&contextEscalonador, (void (*)(void))escalonador, 0);
 
         pfilaAptos = &filaAptos;
         pfilaBloqueados = &filaBloqueados;
@@ -159,13 +204,12 @@ int init()
         if ( CreateFila2(pfilaExecutando) != 0)
             exit(-1);
 
-        initialized = 1;
 
         TCB_t *mainThread;
         mainThread = malloc(sizeof(TCB_t));
         mainThread->tid = 0;
         mainThread->state = PROCST_EXEC;
-        mainThread->prio = 10;
+        mainThread->prio = 0;
         mainThread->join = -1;
         getcontext(&(mainThread->context));
 
@@ -182,14 +226,16 @@ int init()
 
         getcontext(&contextThreadKiller);
 
-        contextThreadKiller.uc_stack.ss_sp = malloc(sizeof(SIGSTKSZ));
-        contextThreadKiller.uc_stack.ss_size = SIGSTKSZ;
+        contextThreadKiller.uc_stack.ss_sp = malloc(32000);
+        contextThreadKiller.uc_stack.ss_size = 32000;
         contextThreadKiller.uc_stack.ss_flags = 0;
         contextThreadKiller.uc_link = &contextEscalonador;
 
-        makecontext(&contextThreadKiller, (void *)threadKiller, 0);
+        makecontext(&contextThreadKiller, (void (*)(void))threadKiller, 0);
 
         printf("Estruturas inicializadas e thread main criada com tid %d\n", mainThread->tid);
+
+        initialized = 1;
 
         return 0;
     }
@@ -213,12 +259,12 @@ int ccreate (void* (*start)(void*), void *arg, int prio)
     newThread->join = -1;
     getcontext(&(newThread->context));
 
-    newThread->context.uc_stack.ss_sp = malloc(sizeof(SIGSTKSZ));
-    newThread->context.uc_stack.ss_size = SIGSTKSZ;
+    newThread->context.uc_stack.ss_sp = malloc(32000);
+    newThread->context.uc_stack.ss_size = 32000;
     newThread->context.uc_stack.ss_flags = 0;
     newThread->context.uc_link = &contextThreadKiller;
 
-    makecontext(&(newThread->context), (void *) start, 1, arg);
+    makecontext(&(newThread->context), (void (*)(void)) start, 1, arg);
 
     if (AppendFila2(pfilaAptos, newThread) != 0)
     {
@@ -249,8 +295,12 @@ int cyield(void)
 
     int getContextReturn = getcontext(&(currentThread->context));
     // salva o contexto na thread
+    FirstFila2(pfilaExecutando);
+    currentThread = (TCB_t *)GetAtIteratorFila2(pfilaExecutando);
 
-    printf("Cyield: Tid da thread que fez a cedencia: %d\n", currentThread->tid);
+    //printf("sal\n");
+    //printf("antes %d, %d\n", Thread->state, currentThread->state);
+    printf("Cyield: Tid da thread que fez a cedencia: %d e prioridade %d\n", currentThread->tid, currentThread->prio);
     if (getContextReturn == -1)
     {
         return -1;
@@ -274,25 +324,76 @@ int cjoin(int tid)
     printf("Cjoin: ");
     init();
 
-    TCB_t *currentThread;
-    FirstFila2(pfilaAptos);
     int achou = 0;
+    TCB_t *currentThread;
 
-    printf("antes\n");
-    printf("Cjoin: Procurando thread com tid %d na fila de aptos\n", tid);
-    printf("depois\n");
-    do
+    if (NextFila2(pfilaAptos) != -NXTFILA_VAZIA)
     {
+        FirstFila2(pfilaAptos);
+
         currentThread = (TCB_t *)GetAtIteratorFila2(pfilaAptos);
+
+        printf("Cjoin: Procurando thread com tid %d na fila de aptos\n", tid);
+
         if (currentThread != NULL)
         {
             if (currentThread->tid == tid)
             {
-                printf("Cjoin: Encontrou thread com tid %d na fila de aptos/n", currentThread->tid);
+                printf("Cjoin: Encontrou thread com tid %d na fila de aptos\n", currentThread->tid);
                 achou = 1;
             }
         }
-    } while((NextFila2(pfilaAptos != -NXTFILA_ENDQUEUE)) && !achou);
+
+        while (!achou && (NextFila2(pfilaAptos) != -NXTFILA_ENDQUEUE))
+        {
+            currentThread = (TCB_t *)GetAtIteratorFila2(pfilaAptos);
+
+            if (currentThread != NULL)
+            {
+                if (currentThread->tid == tid)
+                {
+                    printf("Cjoin: Encontrou thread com tid %d na fila de aptos\n", currentThread->tid);
+                    achou = 1;
+                }
+            }
+        }
+    }
+
+
+
+    if (!achou)
+    {
+        FirstFila2(pfilaBloqueados);
+        if (NextFila2(pfilaBloqueados) != -NXTFILA_VAZIA)
+        {
+            FirstFila2(pfilaBloqueados);
+            printf("Cjoin: Procurando thread com tid %d na fila de bloqueados\n", tid);
+            currentThread = (TCB_t *)GetAtIteratorFila2(pfilaBloqueados);
+
+            if (currentThread != NULL)
+            {
+                if (currentThread->tid == tid)
+                {
+                    printf("Cjoin: Encontrou thread com tid %d na fila de bloqueados\n", currentThread->tid);
+                    achou = 1;
+                }
+            }
+
+            while (!achou && (NextFila2(pfilaBloqueados) != -NXTFILA_ENDQUEUE))
+            {
+                currentThread = (TCB_t *)GetAtIteratorFila2(pfilaBloqueados);
+
+                if (currentThread != NULL)
+                {
+                    if (currentThread->tid == tid)
+                    {
+                        printf("Cjoin: Encontrou thread com tid %d na fila de bloqueados\n", currentThread->tid);
+                        achou = 1;
+                    }
+                }
+            }
+        }
+    }
 
     if (achou)
     {
@@ -303,6 +404,7 @@ int cjoin(int tid)
         }
         else
         {
+            FirstFila2(pfilaExecutando);
             TCB_t *execThread = (TCB_t *)GetAtIteratorFila2(pfilaExecutando);
             currentThread->join = execThread->tid;
 
@@ -312,6 +414,9 @@ int cjoin(int tid)
             {
                 exit(-1);
             }
+
+            FirstFila2(pfilaExecutando);
+            execThread = (TCB_t *)GetAtIteratorFila2(pfilaExecutando);
 
             if (execThread->state == PROCST_BLOQ)
             {
@@ -327,6 +432,7 @@ int cjoin(int tid)
     }
     else
     {
+        printf("Cjoin: Thread esperada ja terminou de executar\n\n");
         return -1;
     }
 }

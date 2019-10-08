@@ -1,5 +1,5 @@
-/* 
- * 
+/*
+ *
  * mandel.c: Este programa realiza o cálculo do fractal de mandelbrot usando
  *           threads. O espaço de cálculo é dividido em 't' linhas onde 't'
  *           é o número de threads usadas.
@@ -105,7 +105,7 @@ void error(char *code){
 }
 
 int main(int argc, char **argv) {
-    int i, r, print=0, t=1, n=256, lim=100;
+    int i, r, print=0, t=1, n=1024, lim=300;
     double c0_r=-2.0, c0_i=1.25, c1_r=0.5, c1_i=-1.25;
     struct work *workload;
     int *workers;
@@ -156,11 +156,11 @@ int main(int argc, char **argv) {
 
     for (i=0; i<t; i++) {
         workers[i] = ccreate(mandel, (void *)(&workload[i]),0);
-        if (workers[i] == -1) 
+        if (workers[i] == -1)
            error("ERRO: Problema na criacao de thread worker\n");
     }
 
-    for (i=0; i<t; i++) 
+    for (i=0; i<t; i++)
         cjoin(workers[i]);
 
     /*

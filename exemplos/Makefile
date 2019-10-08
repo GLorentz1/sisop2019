@@ -1,6 +1,6 @@
 #
 # Makefile para programas exemplo
-# 
+#
 
 CC=gcc
 LIB_DIR=../src
@@ -14,7 +14,7 @@ teste_vetor: teste_vetor.c libcthread
 	$(CC) -o teste_vetor teste_vetor.c -L./ -lcthread -Wall
 
 mandel: mandel.c libcthread
-	$(CC) -o mandel mandel.c -L$(LIB_DIR) -lcthread -lm -Wall
+	$(CC) -o mandel mandel.c -L./ -lcthread -lm -Wall
 
 barbeiro: barbeiro.c libcthread
 	$(CC) -o barbeiro barbeiro.c -L$(LIB_DIR) -lcthread -lm -Wall
@@ -36,7 +36,7 @@ libcthread: lib
 
 lib:
 	$(CC) -c $(LIB_DIR)/lib.c -Wall
-	
+
 clean:
 	rm -rf exemplo mandel teste_vetor barbeiro filosofos prodcons series *.o *~
 

@@ -484,7 +484,7 @@ int cwait(csem_t *sem)
             return -2;
         }
 
-        if (currentThread->PROCST_BLOQ)
+        if (currentThread->state == PROCST_BLOQ)
         {
             escalonador();
         }
@@ -500,7 +500,82 @@ int csignal(csem_t *sem)
 
     init();
 
-    return -1;
+    sem->count++;
+
+    FirstFila2(sem->fila);
+
+    if((NextFila2(sem->fila)) != -NXTFILA_VAZIA)
+    {
+        FirstFila2(sem->fila);
+
+        TCB_t *maiorPrioTCB = (TCB_t *)GetAtIteratorFila2(sem->fila);
+        TCB_t *nodoAtual = NULL;
+
+        float menorTempo = maiorPrioTCB->prio;
+        float tempoNodoAtual = menorTempo;
+
+        while(NextFila2(sem->fila) != -NXTFILA_ENDQUEUE)
+        {
+            nodoAtual = GetAtIteratorFila2(sem->fila);
+            tempoNodoAtual = nodoAtual->prio;
+
+            if (tempoNodoAtual < menorTempo)
+            {
+                //printf("Achei thread com prioridade %f e a menor era %f\n", tempoNodoAtual, menorTempo);
+                menorTempo = tempoNodoAtual;
+                maiorPrioTCB = nodoAtual;
+            }
+        }
+
+        FirstFila2(sem->fila);
+        nodoAtual = GetAtIteratorFila2(sem->fila);
+        if (nodoAtual->tid == maiorPrioTCB->tid)
+        {
+            DeleteAtIteratorFila2(sem->fila);
+        }
+        else
+        {
+            while(NextFila2(sem->fila) != -NXTFILA_ENDQUEUE)
+            {
+                nodoAtual = GetAtIteratorFila2(sem->fila);
+                if (nodoAtual->tid == maiorPrioTCB->tid)
+                {
+                    DeleteAtIteratorFila2(sem->fila);
+                    break;
+                }
+            }
+        }
+
+
+
+        FirstFila2(pfilaBloqueados);
+        nodoAtual = GetAtIteratorFila2(pfilaBloqueados);
+        if (nodoAtual->tid == maiorPrioTCB->tid)
+        {
+            DeleteAtIteratorFila2(pfilaBloqueados);
+        }
+        else
+        {
+            while(NextFila2(pfilaBloqueados) != -NXTFILA_ENDQUEUE)
+            {
+                nodoAtual = GetAtIteratorFila2(pfilaBloqueados);
+                if (nodoAtual->tid == maiorPrioTCB->tid)
+                {
+                    DeleteAtIteratorFila2(pfilaBloqueados);
+                    break;
+                }
+            }
+        }
+
+        maiorPrioTCB->state = PROCST_APTO;
+
+        if (AppendFila2(pfilaAptos, maiorPrioTCB) != 0)
+        {
+            return -1;
+        }
+    }
+
+    return 0;
 }
 
 int cidentify (char *name, int size)

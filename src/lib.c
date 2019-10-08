@@ -128,8 +128,8 @@ void escalonador()
         TCB_t *maiorPrioTCB = (TCB_t *)GetAtIteratorFila2(pfilaAptos);
         TCB_t *nodoAtual = NULL;
 
-        float menorTempo = maiorPrioTCB->prio;
-        float tempoNodoAtual = menorTempo;
+        unsigned int menorTempo = maiorPrioTCB->prio;
+        unsigned int tempoNodoAtual = menorTempo;
 
         while(NextFila2(pfilaAptos) != -NXTFILA_ENDQUEUE)
         {
@@ -167,7 +167,7 @@ void escalonador()
         maiorPrioTCB->state = PROCST_EXEC;
         AppendFila2(pfilaExecutando, maiorPrioTCB);
 
-        printf("Escalonador: Colocando thread %d com prioridade %d no estado executando\n\n", maiorPrioTCB->tid, maiorPrioTCB->prio);
+        printf("Escalonador: Colocando thread %d com prioridade %u no estado executando\n\n", maiorPrioTCB->tid, maiorPrioTCB->prio);
 
         startTimer();
         if (setcontext(&(maiorPrioTCB->context)) == -1)
@@ -433,7 +433,7 @@ int cjoin(int tid)
     else
     {
         printf("Cjoin: Thread esperada ja terminou de executar\n\n");
-        return -1;
+        return 1;
     }
 }
 
@@ -459,7 +459,7 @@ int csem_init(csem_t *sem, int count)
 
 int cwait(csem_t *sem)
 {
-
+    printf("Cwait: ");
     init();
 
     FirstFila2(pfilaExecutando);
@@ -474,15 +474,19 @@ int cwait(csem_t *sem)
     {
         currentThread->state = PROCST_BLOQ;
 
-        if (getcontext(&(currentThread->context) != 0))
+
+        if (getcontext(&(currentThread->context)) != 0)
         {
             return -1;
         }
+
+        printf("salada\n");
 
         if (AppendFila2(sem->fila, currentThread) != 0)
         {
             return -2;
         }
+
 
         if (currentThread->state == PROCST_BLOQ)
         {

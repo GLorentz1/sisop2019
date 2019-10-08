@@ -97,7 +97,7 @@ void escalonador()
     TCB_t *currentThread = (TCB_t *)GetAtIteratorFila2(pfilaExecutando);
     printf("Nova prioridade da thread %d eh %u\n", currentThread->tid, novaPrioridade);
 
-    currentThread->prio = novaPrioridade;
+    currentThread->prio = (unsigned int)novaPrioridade;
 
     //todos os casos (State = bloq / apto / terminado tiram processo de executando
     FirstFila2(pfilaExecutando);
@@ -442,7 +442,19 @@ int csem_init(csem_t *sem, int count)
 
     init();
 
-    return -1;
+    sem->count = count;
+    sem->fila = (PFILA2) malloc(sizeof(PFILA2));
+
+    if(CreateFila2(sem->fila) != 0)
+    {
+        return -1;
+    }
+    else
+    {
+        FirstFila2(sem->fila);
+    }
+
+    return 0;
 }
 
 int cwait(csem_t *sem)
@@ -450,7 +462,37 @@ int cwait(csem_t *sem)
 
     init();
 
-    return -1;
+    FirstFila2(pfilaExecutando);
+    TCB_t *currentThread = (TCB_t *)GetAtIteratorFila2(pfilaExecutando);
+
+    if(sem == NULL)
+    {
+        return -1;
+    }
+
+    if(sem->count <= 0)
+    {
+        currentThread->state = PROCST_BLOQ;
+
+        if (getcontext(&(currentThread->context) != 0))
+        {
+            return -1;
+        }
+
+        if (AppendFila2(sem->fila, currentThread) != 0)
+        {
+            return -2;
+        }
+
+        if (currentThread->PROCST_BLOQ)
+        {
+            escalonador();
+        }
+
+    }
+
+    sem->count--;
+    return 0;
 }
 
 int csignal(csem_t *sem)

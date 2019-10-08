@@ -3,43 +3,22 @@
 #
 
 CC=gcc
-LIB_DIR=../src
-
-all: exemplo mandel teste_vetor barbeiro filosofos prodcons series teste1 libcthread lib
-
-exemplo: exemplo.c libcthread
+LIB_DIR=../lib
+all: exemplo mandel teste_vetor barbeiro filosofos prodcons series
+exemplo: exemplo.c $(LIB_DIR)/libcthread.a
 	$(CC) -o exemplo exemplo.c -L$(LIB_DIR) -lcthread -Wall
-
-teste_vetor: teste_vetor.c libcthread
-	$(CC) -o teste_vetor teste_vetor.c -L./ -lcthread -Wall
-
-mandel: mandel.c libcthread
-	$(CC) -o mandel mandel.c -L./ -lcthread -lm -Wall
-
-barbeiro: barbeiro.c libcthread
+teste_vetor: teste_vetor.c $(LIB_DIR)/libcthread.a
+	$(CC) -o teste_vetor teste_vetor.c -L$(LIB_DIR) -lcthread -Wall
+mandel: mandel.c $(LIB_DIR)/libcthread.a
+	$(CC) -o mandel mandel.c -L$(LIB_DIR) -lcthread -lm -Wall
+barbeiro: barbeiro.c $(LIB_DIR)/libcthread.a
 	$(CC) -o barbeiro barbeiro.c -L$(LIB_DIR) -lcthread -lm -Wall
-
-filosofos: filosofos.c libcthread
+filosofos: filosofos.c $(LIB_DIR)/libcthread.a
 	$(CC) -o filosofos filosofos.c -L$(LIB_DIR) -lcthread -lm -Wall
-
-prodcons: prodcons.c libcthread
+prodcons: prodcons.c $(LIB_DIR)/libcthread.a
 	$(CC) -o prodcons prodcons.c -L$(LIB_DIR) -lcthread -lm -Wall
-
-series: series.c libcthread
+series: series.c $(LIB_DIR)/libcthread.a
 	$(CC) -o series series.c -L$(LIB_DIR) -lcthread -lm -Wall
-
-teste1: teste1.c $(LIB_DIR)/lib.c libcthread
-	$(CC) -o teste1 teste1.c -L./ -lcthread -Wall
-
-libcthread: lib
-	ar crs libcthread.a lib.o ../bin/support.o
-
-lib:
-	$(CC) -c $(LIB_DIR)/lib.c -Wall
-
 clean:
 	rm -rf exemplo mandel teste_vetor barbeiro filosofos prodcons series *.o *~
-
-
-
 

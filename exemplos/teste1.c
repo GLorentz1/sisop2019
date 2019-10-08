@@ -39,10 +39,9 @@ void* printa() {
     printf("Retorno da Cyield na funcao 1: %d\n", cyield());
     printf("Vou esperar tid %d\n", tid);
     printf("Retorno da Cjoin da funcao 1: %d\n", cjoin(tid));
-    printf("Voltei da join fucao 1\n");
+    printf("Voltei da join funcao 1\n");
     sleep(3);
     cyield();
-    printf("saladao\n");
     cyield();
     return;
 
@@ -50,7 +49,7 @@ void* printa() {
 
 void* dummy() {
     printf("Retorno da Cyield na funcao dummy: %d\n", cyield());
-    printf("Eu sou idiota\n");
+    printf("Eu sou a dummy\n");
     return;
 
 }
